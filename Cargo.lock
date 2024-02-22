@@ -549,28 +549,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
-name = "hold"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "cc",
- "graphql-parser",
- "hyper",
- "hyper-util",
- "juniper",
- "juniper_axum",
- "rusqlite",
- "serde",
- "serde_json",
- "tailscale",
- "tokio",
- "tokio-util",
- "tower",
- "tower-http",
-]
-
-[[package]]
 name = "home"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,6 +1180,27 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "graphql-parser",
+ "hyper",
+ "hyper-util",
+ "juniper",
+ "juniper_axum",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tailscale",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tower-http",
 ]
 
 [[package]]
