@@ -546,6 +546,8 @@ dependencies = [
  "axum",
  "cc",
  "graphql-parser",
+ "hyper",
+ "hyper-util",
  "juniper",
  "juniper_axum",
  "rusqlite",
@@ -1225,10 +1227,7 @@ name = "tailscale"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum",
  "bindgen",
- "hyper",
- "hyper-util",
  "tokio",
 ]
 
