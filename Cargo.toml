@@ -1,3 +1,6 @@
+[workspace] 
+ members = [".", "tailscale"] 
+
 [package]
 name = "hold"
 version = "0.1.0"
@@ -9,4 +12,16 @@ edition = "2021"
 anyhow = "1.0.79"
 axum = "0.7.4"
 graphql-parser = "0.4.0"
+juniper = { git = "https://github.com/graphql-rust/juniper/", version = "0.16.0-dev" }
+juniper_axum = { git = "https://github.com/graphql-rust/juniper/", version = "0.1.0" }
+rusqlite = "0.30.0"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
 tokio = { version = "1.35.1", features = ["macros", "rt"] }
+tailscale = { path = "tailscale" }
+
+[env]
+SQLITE3_LIB_DIR = "/opt/homebrew/opt/sqlite/bin"
+
+[build-dependencies]
+cc = "1.0.85"

@@ -1,13 +1,20 @@
+use tailscale::{TSNetwork, Tailscale};
+
+mod graph;
 mod router;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), anyhow::Error> {
-    // build our application with a single route
-    let app = router::new_router();
+    let ts = Tailscale::new();
+    ts.up().await?;
+    println!("Tailscale is up!");
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    axum::serve(listener, app).await?;
+    let conn = rusqlite::Connection::open("data.db")?;
+
+    // build our application with a single route
+    let app = router::new_router(conn);
+
+    ts.listen(TSNetwork::TCP, ":3000", app).await?;
 
     Ok(())
 }
