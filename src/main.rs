@@ -1,25 +1,26 @@
 use std::sync::Arc;
 
-use hyper_util::{
-    rt::{TokioExecutor, TokioIo},
-    service::TowerToHyperService,
-};
-use tailscale::{TSNetwork, Tailscale};
+use hyper_util::{rt::TokioIo, service::TowerToHyperService};
 
 mod graph;
 mod router;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), anyhow::Error> {
-    let ts = Arc::new(Tailscale::new());
-    ts.up().await?;
-    println!("Tailscale is up!");
-
     let conn = rusqlite::Connection::open("data.db")?;
 
     // build our application with a single route
     let app = router::new_router(conn);
 
+    start_server(app).await
+}
+
+#[cfg(feature = "prod")]
+async fn start_server(app: axum::Router) -> anyhow::Result<()> {
+    use tailscale::{TSNetwork, Tailscale};
+    let ts = Arc::new(Tailscale::new());
+    ts.up().await?;
+    println!("Tailscale is up!");
     let listener = ts.listen(TSNetwork::TCP, ":3000")?;
     loop {
         let conn = ts.accept(listener).await?;
@@ -35,4 +36,11 @@ async fn main() -> Result<(), anyhow::Error> {
                 .await
         });
     }
+}
+
+#[cfg(feature = "dev")]
+async fn start_server(app: axum::Router) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
+    axum::serve(listener, app).await;
+    Ok(())
 }

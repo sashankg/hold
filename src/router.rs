@@ -1,13 +1,28 @@
 mod register;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    fs::{File, OpenOptions},
+    io::{BufWriter, Write},
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::anyhow;
-use axum::{extract::State, routing::*, Extension};
-use graphql_parser::query::Field;
+use axum::{
+    body::{Body, BodyDataStream},
+    extract::{DefaultBodyLimit, Multipart, Request, State},
+    handler::Handler,
+    http::method,
+    response::{IntoResponse, Response},
+    routing::*,
+    Extension,
+};
+use hyper::StatusCode;
 use juniper::{graphql_value, Context, ExecutionResult, Executor, FieldError, GraphQLObject};
 use juniper_axum::{extract::JuniperRequest, response::JuniperResponse};
 use rusqlite::Connection;
+use tokio_util::io::StreamReader;
+use tower_http::services::ServeFile;
 
 pub struct AppState {
     conn: Mutex<Connection>,
@@ -34,8 +49,47 @@ pub fn new_router(conn: Connection) -> axum::Router {
             "/playground",
             get(juniper_axum::playground("graphql", "/subscriptions")),
         )
+        .route(
+            "/upload",
+            post(upload_handler)
+                .layer(DefaultBodyLimit::disable())
+                .get_service(ServeFile::new("static/upload.html")),
+        )
         .layer(Extension(Arc::new(schema)))
         .with_state(Arc::new(state))
+}
+
+async fn upload_handler(
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, axum::http::StatusCode> {
+    while let Some(mut field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    {
+        let p =
+            Path::new("uploads").join(field.file_name().ok_or(StatusCode::INTERNAL_SERVER_ERROR)?);
+        let f = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(p)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut w = BufWriter::new(f);
+
+        while let Some(chunk) = field
+            .chunk()
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        {
+            w.write_all(&chunk)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
+    return Ok(Response::builder()
+        .status(StatusCode::SEE_OTHER)
+        .header("Location", "/upload")
+        .body("".to_string())
+        .unwrap());
 }
 
 async fn graphql_handler(
