@@ -4,7 +4,7 @@
 
 use std::{
     ffi::{c_int, CStr, CString},
-    fs::OpenOptions,
+    fs::{File, OpenOptions},
     net::TcpStream,
     os::fd::{AsRawFd, FromRawFd},
     sync::Arc,
@@ -33,20 +33,25 @@ pub struct TailscaleListener {
 
 pub struct Tailscale {
     inner: tailscale,
+    log: File,
 }
 
 impl Tailscale {
     pub fn new() -> Self {
-        unsafe {
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open("tailscale.log")
+            .expect("failed to open log file");
+        let fd = file.as_raw_fd();
+        let ts = unsafe {
             let ts = tailscale_new();
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .open("tailscale.log")
-                .expect("failed to open log file");
-            let fd = file.as_raw_fd();
             tailscale_set_logfd(ts, fd);
-            Tailscale { inner: ts }
+            ts
+        };
+        Tailscale {
+            inner: ts,
+            log: file,
         }
     }
 
@@ -61,15 +66,15 @@ impl Tailscale {
         let hostname = CString::new(hostname).unwrap();
         let auth_key = CString::new(auth_key).unwrap();
         let control_url = CString::new(control_url).unwrap();
+        let ts = Self::new();
         unsafe {
-            let ts = tailscale_new();
-            tailscale_set_dir(ts, dir.as_ptr());
-            tailscale_set_hostname(ts, hostname.as_ptr());
-            tailscale_set_authkey(ts, auth_key.as_ptr());
-            tailscale_set_control_url(ts, control_url.as_ptr());
-            tailscale_set_ephemeral(ts, ephemeral.into());
-            Tailscale { inner: ts }
-        }
+            tailscale_set_dir(ts.inner, dir.as_ptr());
+            tailscale_set_hostname(ts.inner, hostname.as_ptr());
+            tailscale_set_authkey(ts.inner, auth_key.as_ptr());
+            tailscale_set_control_url(ts.inner, control_url.as_ptr());
+            tailscale_set_ephemeral(ts.inner, ephemeral.into());
+        };
+        ts
     }
 
     pub async fn up(self: &Arc<Self>) -> anyhow::Result<()> {
