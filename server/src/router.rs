@@ -3,6 +3,7 @@ mod register;
 use std::{
     fs::{File, OpenOptions},
     io::{BufWriter, Write},
+    net::SocketAddr,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -53,36 +54,31 @@ pub fn new_router(conn: Connection) -> axum::Router {
             "/upload",
             post(upload_handler)
                 .layer(DefaultBodyLimit::disable())
-                .get_service(ServeFile::new("static/upload.html")),
+                .get_service(ServeFile::new("server/static/upload.html")),
         )
         .layer(Extension(Arc::new(schema)))
         .with_state(Arc::new(state))
 }
 
-async fn upload_handler(
-    mut multipart: Multipart,
-) -> Result<impl IntoResponse, axum::http::StatusCode> {
+async fn upload_handler(mut multipart: Multipart) -> Result<impl IntoResponse, String> {
+    println!("upload_handler");
     while let Some(mut field) = multipart
         .next_field()
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .map_err(|_| "failed to parse field")?
     {
-        let p =
-            Path::new("uploads").join(field.file_name().ok_or(StatusCode::INTERNAL_SERVER_ERROR)?);
+        let p = Path::new("uploads").join(field.file_name().ok_or("failed to join uploads")?);
+        println!("p: {:?}", p);
         let f = OpenOptions::new()
             .create(true)
             .write(true)
             .open(p)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|_| "failed to open file")?;
         let mut w = BufWriter::new(f);
 
-        while let Some(chunk) = field
-            .chunk()
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        {
-            w.write_all(&chunk)
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        while let Some(chunk) = field.chunk().await.map_err(|_| "failed to read chunk")? {
+            println!("chunk: {:?}", chunk.len());
+            w.write_all(&chunk).map_err(|_| "failed to write chunk")?;
         }
     }
     return Ok(Response::builder()
