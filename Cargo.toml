@@ -1,2 +1,11 @@
 [workspace] 
- members = ["server", "tailscale"] 
+members = ["server", "tailscale" ] 
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+
+[workspace.dependencies]
+anyhow = "1.0.79"
+serde =  "1.0.196"
+tokio = "1.35.1"
