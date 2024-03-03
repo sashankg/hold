@@ -1,9 +1,13 @@
-package com.sashankg.hold
+package com.sashankg.hold.worker
 
 import android.content.Context
 import android.provider.MediaStore
 import androidx.hilt.work.HiltWorker
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.sashankg.hold.model.Media
 import com.sashankg.hold.model.MediaDao
@@ -31,11 +35,19 @@ class WatcherWorker @AssistedInject constructor(
             while (cursor.moveToNext()) {
                 val media = Media(cursor.getLong(idColumn), Date(), null)
                 mediaList.add(media)
-                println("Media id:  ${media.id}")
             }
         }
+        println(mediaList)
         mediaDao.insertAll(mediaList)
 
         return Result.success()
+    }
+
+    companion object {
+        fun enqueue(context: Context) {
+            val work = OneTimeWorkRequestBuilder<WatcherWorker>().build()
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork("backupworker", ExistingWorkPolicy.REPLACE, work)
+        }
     }
 }

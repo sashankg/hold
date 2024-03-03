@@ -21,6 +21,7 @@ hyper = { version = "1.2.0", features = ["http2", "server"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.1", features = ["fs"] }
 tokio-util = { version = "0.7.10", features = ["io"] }
+uuid = "1.7.0"
 
 [env]
 SQLITE3_LIB_DIR = "/opt/homebrew/opt/sqlite/bin"

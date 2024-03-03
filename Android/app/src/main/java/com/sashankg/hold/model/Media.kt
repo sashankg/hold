@@ -1,15 +1,12 @@
 package com.sashankg.hold.model
 
+import android.database.Cursor
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverter
-import androidx.work.ListenableWorker
-import com.sashankg.hold.BackupWorker
+import androidx.room.Query
 import com.sashankg.hold.HoldDatabase
-import com.sashankg.hold.WatcherWorker
-import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,6 +28,9 @@ interface MediaDao {
 
     @Insert
     suspend fun insert(media: Media)
+
+    @Query("SELECT * FROM media")
+    suspend fun getAllMedia(): List<Media>
 }
 
 @Module

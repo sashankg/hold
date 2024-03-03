@@ -1,14 +1,10 @@
 package com.sashankg.hold
 
 import android.app.Application
-import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
-import androidx.room.Room
 import androidx.work.Configuration
-import androidx.work.ListenableWorker
-import androidx.work.WorkManager
-import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.sashankg.hold.worker.BackupWorker
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 

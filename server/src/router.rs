@@ -67,8 +67,8 @@ async fn upload_handler(mut multipart: Multipart) -> Result<impl IntoResponse, S
         .await
         .map_err(|_| "failed to parse field")?
     {
+        let uid = uuid::Uuid::new_v4();
         let p = Path::new("uploads").join(field.file_name().ok_or("failed to join uploads")?);
-        println!("p: {:?}", p);
         let f = OpenOptions::new()
             .create(true)
             .write(true)
@@ -81,11 +81,7 @@ async fn upload_handler(mut multipart: Multipart) -> Result<impl IntoResponse, S
             w.write_all(&chunk).map_err(|_| "failed to write chunk")?;
         }
     }
-    return Ok(Response::builder()
-        .status(StatusCode::SEE_OTHER)
-        .header("Location", "/upload")
-        .body("".to_string())
-        .unwrap());
+    return Ok(Response::builder().status(StatusCode::OK).body().unwrap());
 }
 
 async fn graphql_handler(
