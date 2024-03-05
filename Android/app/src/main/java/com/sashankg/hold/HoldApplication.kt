@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.WorkerParameters
 import com.sashankg.hold.worker.BackupWorker
+import com.sashankg.hold.worker.WatcherWorker
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 

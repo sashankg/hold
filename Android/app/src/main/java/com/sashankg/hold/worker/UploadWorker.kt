@@ -36,7 +36,7 @@ class UploadWorker @AssistedInject constructor(
             id
         )
         val call = server.upload(
-            MultipartBody.Builder().addFormDataPart("file", "${contentUri}.jpg", object : RequestBody() {
+            MultipartBody.Part.createFormData("file", "$contentUri.jpg", object : RequestBody() {
                 override fun contentType(): MediaType? {
                     return MediaType.parse("image/jpg")
                 }
@@ -51,10 +51,10 @@ class UploadWorker @AssistedInject constructor(
                             sink.write(ByteString.of(0))
                         }
                 }
-            }).build()
+            })
         ).await()
 
-        println(call)
+        println("hello? ${call}")
 
         return Result.success()
     }
