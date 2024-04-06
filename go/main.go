@@ -1,13 +1,15 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"embed"
 	"net/http"
 
 	_ "github.com/mattn/go-sqlite3"
 	goose "github.com/pressly/goose/v3"
+
+	"net/http/pprof"
+	_ "net/http/pprof"
 
 	"github.com/sashankg/hold/core"
 	"github.com/sashankg/hold/dao"
@@ -36,23 +38,41 @@ func main() {
 		panic(err)
 	}
 
-	if err := daoObj.AddCollection(context.Background(), &dao.Collection{
-		Name:    "posts",
-		Domain:  "public",
-		Version: "v1",
-		Fields: []dao.CollectionField{
-			{
-				Name: "title",
-				Type: "string",
-			},
-			{
-				Name: "body",
-				Type: "string",
-			},
-		},
-	}); err != nil {
-		panic(err)
-	}
+	// if err := daoObj.AddCollection(context.Background(), &dao.Collection{
+	//     Name:    "posts",
+	//     Domain:  "public",
+	//     Version: "v1",
+	//     Fields: map[string]dao.CollectionField{
+	//         "title": {
+	//             Name: "title",
+	//             Type: "string",
+	//         },
+	//         "body": {
+	//             Name: "body",
+	//             Type: "string",
+	//         },
+	//         "author": {
+	//             Name: "author",
+	//             Type: "people",
+	//         },
+	//     },
+	// }); err != nil {
+	//     panic(err)
+	// }
+
+	// if err := daoObj.AddCollection(context.Background(), &dao.Collection{
+	//     Name:    "people",
+	//     Domain:  "public",
+	//     Version: "v1",
+	//     Fields: map[string]dao.CollectionField{
+	//         "name": {
+	//             Name: "name",
+	//             Type: "string",
+	//         },
+	//     },
+	// }); err != nil {
+	//     panic(err)
+	// }
 
 	collectionsResolver, err := resolvers.NewCollectionsResolver(daoObj)
 	if err != nil {
@@ -84,13 +104,14 @@ func NewServer(routes []core.Route) *http.Server {
 	for _, route := range routes {
 		serveMux.Handle(route.Route(), route)
 	}
+	serveMux.Handle("/debug/pprof/", pprof.Handler("heap"))
 	return &http.Server{
 		Handler: serveMux,
 	}
 }
 
 func NewDb() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", "data.db")
 	if err != nil {
 		return nil, err
 	}

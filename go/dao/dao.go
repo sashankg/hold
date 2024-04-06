@@ -6,9 +6,16 @@ import (
 )
 
 type Dao interface {
-	FindCollection(ctx context.Context, name string, domain string) (*Collection, error)
-	ListCollections(ctx context.Context) ([]*Collection, error)
+	FindCollections(ctx context.Context, names []string) (map[int]*Collection, error)
 	AddCollection(ctx context.Context, collection *Collection) error
+
+	GetRecord(
+		ctx context.Context,
+		id int,
+		selection []Selection,
+		collectionId int,
+		collectionMap map[int]*Collection,
+	) (string, error)
 }
 
 type daoImpl struct{ db *sql.DB }
