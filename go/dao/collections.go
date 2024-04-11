@@ -5,8 +5,25 @@ import (
 	"strings"
 
 	sq "github.com/Masterminds/squirrel"
+	mapset "github.com/deckarep/golang-set/v2"
 	"golang.org/x/exp/maps"
 )
+
+const (
+	cCollectionTable       = "_collections"
+	cCollectionFieldsTable = "_collection_fields"
+)
+
+type CollectionDao interface {
+	FindCollections(ctx context.Context, names []string) (map[int]*Collection, error)
+	FindCollectionFields(
+		ctx context.Context,
+		fieldMap map[CollectionSpec]mapset.Set[string],
+	) (map[CollectionSpec]map[string]CollectionField, error)
+	AddCollection(ctx context.Context, collection *Collection) error
+}
+
+var _ CollectionDao = (*daoImpl)(nil)
 
 type Collection struct {
 	Id      int
@@ -24,7 +41,12 @@ type CollectionField struct {
 	IsList bool
 }
 
-// FindCollection implements Dao.
+type CollectionSpec struct {
+	Name      string
+	Namespace string
+}
+
+// FindCollection implements CollectionDao.
 func (o *daoImpl) FindCollections(
 	ctx context.Context,
 	names []string,
@@ -74,7 +96,51 @@ func (o *daoImpl) FindCollections(
 	return collections, nil
 }
 
-// AddCollection implements Dao.
+// FindCollectionFields implements CollectionDao.
+func (o *daoImpl) FindCollectionFields(
+	ctx context.Context,
+	fieldMap map[CollectionSpec]mapset.Set[string],
+) (map[CollectionSpec]map[string]CollectionField, error) {
+	fields := map[CollectionSpec]map[string]CollectionField{}
+	for collectionSpec := range fieldMap {
+		fields[collectionSpec] = map[string]CollectionField{}
+	}
+	matchesCollectionSpecsClause := sq.Expr(``)
+	for collectionSpec := range fieldMap {
+		matchesCollectionSpecsClause = sq.Or{
+			matchesCollectionSpecsClause,
+			sq.Eq{
+				"_collections.name":       collectionSpec.Name,
+				"_collections.domain":     collectionSpec.Namespace,
+				"_collection_fields.name": fieldMap[collectionSpec].ToSlice(),
+			},
+		}
+	}
+	fieldRows, err := sq.Select("_collections.name", "_collections.domain", "name", "type", "ref", "is_list").
+		From("_collection_fields").
+		Join("_collections ON _collections.id = _collection_fields.collection_id").
+		Where(matchesCollectionSpecsClause).
+		RunWith(o.db).
+		QueryContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer fieldRows.Close()
+	for fieldRows.Next() {
+		var (
+			field            CollectionField
+			collectionName   string
+			collectionDomain string
+		)
+		if err := fieldRows.Scan(&collectionName, &collectionDomain, &field.Name, &field.Type, &field.Ref, &field.IsList); err != nil {
+			return nil, err
+		}
+		fields[CollectionSpec{Name: collectionName, Namespace: collectionDomain}][field.Name] = field
+	}
+	return fields, nil
+}
+
+// AddCollection implements CollectionDao.
 func (o *daoImpl) AddCollection(ctx context.Context, collection *Collection) error {
 	tx, err := o.db.BeginTx(ctx, nil)
 	if err != nil {

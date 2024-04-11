@@ -33,10 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	daoObj, err := dao.NewDao(db)
-	if err != nil {
-		panic(err)
-	}
+	daoObj := dao.NewDao(db)
 
 	// if err := daoObj.AddCollection(context.Background(), &dao.Collection{
 	//     Name:    "posts",
@@ -79,7 +76,7 @@ func main() {
 		panic(err)
 	}
 
-	schema, err := resolvers.NewGraphqlSchema(
+	_, err = resolvers.NewGraphqlSchema(
 		[]any{
 			// resolvers.NewKvResolver(db),
 			collectionsResolver,
@@ -93,7 +90,7 @@ func main() {
 	server := NewServer([]core.Route{
 		handlers.NewUploadHandler(&handlers.FnvHasher{}),
 		handlers.NewGraphqlHandler(
-			schema,
+			daoObj,
 		),
 	})
 	panic(server.Serve(ln))

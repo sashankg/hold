@@ -16,7 +16,7 @@ func TestPut(t *testing.T) {
 
 	r := resolvers.NewKvResolver(db)
 
-	schema, err := resolvers.NewGraphqlSchema([]any{r}, nil)
+	schema, err := resolvers.NewGraphqlSchema([]any{r})
 	assert.NoError(t, err)
 
 	params := graphql.Params{Schema: *schema, RequestString: `

@@ -7,6 +7,16 @@ import (
 	sq "github.com/Masterminds/squirrel"
 )
 
+type RecordDao interface {
+	GetRecord(
+		ctx context.Context,
+		id int,
+		selection []Selection,
+		collectionId int,
+		collectionMap map[int]*Collection,
+	) (string, error)
+}
+
 type Selection struct {
 	FieldName     string
 	Subselections []Selection
@@ -61,12 +71,3 @@ func (o *daoImpl) GetRecord(
 	err := recordQuery.RunWith(o.db).QueryRowContext(ctx).Scan(&json)
 	return json, err
 }
-
-// func (o *daoImpl) AddRecord(
-//     ctx context.Context,
-//     collection *Collection,
-
-// ) (int, error) {
-//     o.db.ExecContext()
-
-// }
