@@ -45,7 +45,7 @@ func TestFindCollectionFields(t *testing.T) {
 			sqlmock.AnyArg(),
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"name", "domain", "name", "type", "ref", "is_list"}))
-	_, err = o.FindCollectionFields(context.Background(), map[dao.CollectionSpec]mapset.Set[string]{
+	_, err = o.FindCollectionFieldsBySpec(context.Background(), map[dao.CollectionSpec]mapset.Set[string]{
 		{Namespace: "namespace", Name: "name1"}: mapset.NewSet("field1", "field2"),
 		{Namespace: "namespace", Name: "name2"}: mapset.NewSet("field3", "field4"),
 	})

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -10,7 +11,6 @@ import (
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/graphql-go/graphql/language/kinds"
 	gql_parser "github.com/graphql-go/graphql/language/parser"
-	gql_source "github.com/graphql-go/graphql/language/source"
 	gql_handler "github.com/graphql-go/handler"
 	"github.com/sashankg/hold/dao"
 )
@@ -20,26 +20,129 @@ type GraphqlHandler struct {
 }
 
 func NewGraphqlHandler(dao dao.Dao) *GraphqlHandler {
-	return &GraphqlHandler{}
+	return &GraphqlHandler{
+		dao: dao,
+	}
 }
 
 func (h *GraphqlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	opts := gql_handler.NewRequestOptions(r)
-	source := gql_source.NewSource(&gql_source.Source{
-		Body: []byte(opts.Query),
-	})
 
-	ast, err := gql_parser.Parse(gql_parser.ParseParams{Source: source})
+	doc, err := gql_parser.Parse(gql_parser.ParseParams{Source: opts.Query})
 
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
+		return
 	}
-
-	_, err = collectRequiredCollectionSpecs(ast)
+	h.ValidateRootSelections(r.Context(), doc)
 }
 
-func collectRequiredCollectionSpecs(
+func (h *GraphqlHandler) ValidateRootSelections(
+	ctx context.Context,
+	doc *ast.Document,
+) error {
+	fieldMap, err := collectRequiredFieldsBySpec(doc)
+	if err != nil {
+		return err
+	}
+	collections, err := h.dao.FindCollectionFieldsBySpec(ctx, fieldMap)
+	if err != nil {
+		return err
+	}
+	nestedSelections := map[int][]*ast.SelectionSet{}
+	for _, def := range doc.Definitions {
+		switch def := def.(type) {
+		case *ast.OperationDefinition:
+			for _, opSel := range def.SelectionSet.Selections {
+				switch opSel := opSel.(type) {
+				case *ast.Field:
+					collectionSpec, err := rootFieldToCollectionSpec(opSel)
+					if err != nil {
+						return err
+					}
+					collection, ok := collections[*collectionSpec]
+					if !ok {
+						// not a real collection
+						return NewInvalidSchemaError("invalid collection: "+collectionSpec.Name, opSel.Loc)
+					}
+					collectionNestedSelections(collection, opSel.SelectionSet, nestedSelections)
+				}
+			}
+		}
+	}
+	return h.validateNestedSelections(ctx, nestedSelections)
+}
+
+func (h *GraphqlHandler) validateNestedSelections(
+	ctx context.Context,
+	selections map[int][]*ast.SelectionSet,
+) error {
+	if len(selections) == 0 {
+		return nil
+	}
+	fields := map[int]mapset.Set[string]{}
+	for ref, selectionSets := range selections {
+		if _, ok := fields[ref]; !ok {
+			fields[ref] = mapset.NewSet[string]()
+		}
+		for _, selectionSet := range selectionSets {
+			for _, sel := range selectionSet.Selections {
+				switch sel := sel.(type) {
+				case *ast.Field:
+					fields[ref].Add(sel.Name.Value)
+				}
+			}
+		}
+	}
+	collections, err := h.dao.FindCollectionFieldsByCollectionId(ctx, fields)
+	if err != nil {
+		return err
+	}
+	nestedSelections := map[int][]*ast.SelectionSet{}
+	for ref, selectionSets := range selections {
+		collection, ok := collections[ref]
+		if !ok {
+			return fmt.Errorf("invalid collection id: %d", ref)
+		}
+		for _, selectionSet := range selectionSets {
+			collectionNestedSelections(collection, selectionSet, nestedSelections)
+		}
+	}
+	return h.validateNestedSelections(ctx, nestedSelections)
+}
+
+func collectionNestedSelections(
+	collection map[string]dao.CollectionField,
+	selectionSet *ast.SelectionSet,
+	nestedSelections map[int][]*ast.SelectionSet, /*inout*/
+) error {
+	for _, sel := range selectionSet.Selections {
+		switch sel := sel.(type) {
+		case *ast.Field:
+			field, ok := collection[sel.Name.Value]
+			if !ok {
+				// not a real field
+				return NewInvalidSchemaError("invalid field: "+sel.Name.Value, sel.Loc)
+			}
+			if field.Ref == 0 && sel.SelectionSet != nil {
+				// not a reference field
+				return NewInvalidSchemaError("field not object type: "+sel.Name.Value, sel.Loc)
+			}
+			if field.Ref > 0 && sel.SelectionSet == nil {
+				// not a reference field
+				return NewInvalidSchemaError("need a selection set for object fields: "+sel.Name.Value, sel.Loc)
+			}
+			if sel.SelectionSet == nil {
+				continue
+			}
+			nestedSelections[field.Ref] = append(nestedSelections[field.Ref], sel.SelectionSet)
+		}
+	}
+	return nil
+}
+
+func collectRequiredFieldsBySpec(
 	doc *ast.Document,
 ) (map[dao.CollectionSpec]mapset.Set[string], error) {
 	fields := map[dao.CollectionSpec]mapset.Set[string]{}
@@ -106,12 +209,12 @@ func NewInvalidSchemaError(reason string, location *ast.Location) *InvalidSchema
 }
 
 func (e *InvalidSchemaError) Error() string {
-	return fmt.Sprintf("invalid schema: %s at %i", e.reason, e.location.Start)
+	return fmt.Sprintf("invalid schema: %s at %d", e.reason, e.location.Start)
 }
 
 func rootFieldToCollectionSpec(
 	def *ast.Field,
-) (*dao.CollectionSpec, error) {
+) (*dao.CollectionSpec, *InvalidSchemaError) {
 	matcher, err := regexp.Compile("^(?:find|list|patch|set)([A-Z][a-zA-Z]*)$")
 	if err != nil {
 		panic(err)
@@ -123,9 +226,9 @@ func rootFieldToCollectionSpec(
 			def.Loc,
 		)
 	}
-	namespace, err := getNamespace(def.Directives)
-	if err != nil {
-		return nil, err
+	namespace, schemaErr := getNamespace(def.Directives)
+	if schemaErr != nil {
+		return nil, schemaErr
 	}
 	return &dao.CollectionSpec{Namespace: namespace, Name: matches[1]}, nil
 }
@@ -134,7 +237,7 @@ type HasDirectives interface {
 	GetDirectives() []*ast.Directive
 }
 
-func getNamespace(directives []*ast.Directive) (string, error) {
+func getNamespace(directives []*ast.Directive) (string, *InvalidSchemaError) {
 	for _, directive := range directives {
 		if directive.Name.Value != "namespace" {
 			continue

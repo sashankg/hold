@@ -16,10 +16,14 @@ const (
 
 type CollectionDao interface {
 	FindCollections(ctx context.Context, names []string) (map[int]*Collection, error)
-	FindCollectionFields(
+	FindCollectionFieldsBySpec(
 		ctx context.Context,
 		fieldMap map[CollectionSpec]mapset.Set[string],
 	) (map[CollectionSpec]map[string]CollectionField, error)
+	FindCollectionFieldsByCollectionId(
+		ctx context.Context,
+		fieldMap map[int]mapset.Set[string],
+	) (map[int]map[string]CollectionField, error)
 	AddCollection(ctx context.Context, collection *Collection) error
 }
 
@@ -96,8 +100,8 @@ func (o *daoImpl) FindCollections(
 	return collections, nil
 }
 
-// FindCollectionFields implements CollectionDao.
-func (o *daoImpl) FindCollectionFields(
+// FindCollectionFieldsBySpec implements CollectionDao.
+func (o *daoImpl) FindCollectionFieldsBySpec(
 	ctx context.Context,
 	fieldMap map[CollectionSpec]mapset.Set[string],
 ) (map[CollectionSpec]map[string]CollectionField, error) {
@@ -136,6 +140,45 @@ func (o *daoImpl) FindCollectionFields(
 			return nil, err
 		}
 		fields[CollectionSpec{Name: collectionName, Namespace: collectionDomain}][field.Name] = field
+	}
+	return fields, nil
+}
+
+// FindCollectionFieldsByCollectionId implements CollectionDao.
+func (o *daoImpl) FindCollectionFieldsByCollectionId(
+	ctx context.Context,
+	fieldMap map[int]mapset.Set[string],
+) (map[int]map[string]CollectionField, error) {
+	fields := map[int]map[string]CollectionField{}
+	matchesCollectionIdsClause := sq.Expr(``)
+	for id := range fieldMap {
+		fields[id] = map[string]CollectionField{}
+		matchesCollectionIdsClause = sq.Or{
+			matchesCollectionIdsClause,
+			sq.Eq{
+				"_collection_id": id,
+				"name":           fieldMap[id].ToSlice(),
+			},
+		}
+	}
+	fieldRows, err := sq.Select("collection_id", "name", "type", "ref", "is_list").
+		From("_collection_fields").
+		Where(matchesCollectionIdsClause).
+		RunWith(o.db).
+		QueryContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer fieldRows.Close()
+	for fieldRows.Next() {
+		var (
+			field        CollectionField
+			collectionId int
+		)
+		if err := fieldRows.Scan(&collectionId, &field.Name, &field.Type, &field.Ref, &field.IsList); err != nil {
+			return nil, err
+		}
+		fields[collectionId][field.Name] = field
 	}
 	return fields, nil
 }
