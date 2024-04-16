@@ -56,10 +56,10 @@ func (mr *MockDaoMockRecorder) AddCollection(ctx, collection any) *gomock.Call {
 }
 
 // FindCollectionFieldsByCollectionId mocks base method.
-func (m *MockDao) FindCollectionFieldsByCollectionId(ctx context.Context, fieldMap map[int]mapset.Set[string]) (map[int]map[string]dao.CollectionField, error) {
+func (m *MockDao) FindCollectionFieldsByCollectionId(ctx context.Context, fieldMap map[int]mapset.Set[string]) (map[int]*dao.Collection, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindCollectionFieldsByCollectionId", ctx, fieldMap)
-	ret0, _ := ret[0].(map[int]map[string]dao.CollectionField)
+	ret0, _ := ret[0].(map[int]*dao.Collection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -71,10 +71,10 @@ func (mr *MockDaoMockRecorder) FindCollectionFieldsByCollectionId(ctx, fieldMap 
 }
 
 // FindCollectionFieldsBySpec mocks base method.
-func (m *MockDao) FindCollectionFieldsBySpec(ctx context.Context, fieldMap map[dao.CollectionSpec]mapset.Set[string]) (map[dao.CollectionSpec]map[string]dao.CollectionField, error) {
+func (m *MockDao) FindCollectionFieldsBySpec(ctx context.Context, fieldMap map[dao.CollectionSpec]mapset.Set[string]) (map[dao.CollectionSpec]*dao.Collection, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindCollectionFieldsBySpec", ctx, fieldMap)
-	ret0, _ := ret[0].(map[dao.CollectionSpec]map[string]dao.CollectionField)
+	ret0, _ := ret[0].(map[dao.CollectionSpec]*dao.Collection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

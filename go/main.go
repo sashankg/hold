@@ -13,8 +13,8 @@ import (
 
 	"github.com/sashankg/hold/core"
 	"github.com/sashankg/hold/dao"
+	"github.com/sashankg/hold/graphql"
 	"github.com/sashankg/hold/handlers"
-	"github.com/sashankg/hold/resolvers"
 	"github.com/sashankg/hold/server"
 )
 
@@ -27,70 +27,23 @@ func main() {
 		panic(err)
 	}
 
-	db, err := NewDb()
-
+	schemaDb, err := NewSchemaDb()
 	if err != nil {
 		panic(err)
 	}
 
-	daoObj := dao.NewDao(db)
-
-	// if err := daoObj.AddCollection(context.Background(), &dao.Collection{
-	//     Name:    "posts",
-	//     Domain:  "public",
-	//     Version: "v1",
-	//     Fields: map[string]dao.CollectionField{
-	//         "title": {
-	//             Name: "title",
-	//             Type: "string",
-	//         },
-	//         "body": {
-	//             Name: "body",
-	//             Type: "string",
-	//         },
-	//         "author": {
-	//             Name: "author",
-	//             Type: "people",
-	//         },
-	//     },
-	// }); err != nil {
-	//     panic(err)
-	// }
-
-	// if err := daoObj.AddCollection(context.Background(), &dao.Collection{
-	//     Name:    "people",
-	//     Domain:  "public",
-	//     Version: "v1",
-	//     Fields: map[string]dao.CollectionField{
-	//         "name": {
-	//             Name: "name",
-	//             Type: "string",
-	//         },
-	//     },
-	// }); err != nil {
-	//     panic(err)
-	// }
-
-	collectionsResolver, err := resolvers.NewCollectionsResolver(daoObj)
+	recordDb, err := NewRecordDb()
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = resolvers.NewGraphqlSchema(
-		[]any{
-			// resolvers.NewKvResolver(db),
-			collectionsResolver,
-			// &LoggerExtension{},
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
+	daoObj := dao.NewDao(schemaDb, recordDb)
 
 	server := NewServer([]core.Route{
 		handlers.NewUploadHandler(&handlers.FnvHasher{}),
 		handlers.NewGraphqlHandler(
-			daoObj,
+			graphql.NewValidator(daoObj),
+			graphql.NewResolver(daoObj),
 		),
 	})
 	panic(server.Serve(ln))
@@ -107,8 +60,8 @@ func NewServer(routes []core.Route) *http.Server {
 	}
 }
 
-func NewDb() (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", "data.db")
+func NewSchemaDb() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "schema.db")
 	if err != nil {
 		return nil, err
 	}
@@ -120,4 +73,8 @@ func NewDb() (*sql.DB, error) {
 		return nil, err
 	}
 	return db, err
+}
+
+func NewRecordDb() (*sql.DB, error) {
+	return sql.Open("sqlite3", "record.db")
 }

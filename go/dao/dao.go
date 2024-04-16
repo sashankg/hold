@@ -9,10 +9,16 @@ type Dao interface {
 	RecordDao
 }
 
-type daoImpl struct{ db *sql.DB }
+type daoImpl struct {
+	schemaDb *sql.DB
+	recordDb *sql.DB
+}
 
 var _ Dao = (*daoImpl)(nil)
 
-func NewDao(db *sql.DB) Dao {
-	return &daoImpl{db: db}
+func NewDao(schemaDb *sql.DB, recordDb *sql.DB) Dao {
+	return &daoImpl{
+		schemaDb,
+		recordDb,
+	}
 }

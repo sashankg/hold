@@ -14,7 +14,7 @@ import (
 func TestFindCollectionFields(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(test_util.SQLQueryMatcher))
 	assert.NoError(t, err)
-	o := dao.NewDao(db)
+	o := dao.NewDao(db, nil)
 
 	mock.ExpectQuery(`
 		SELECT 
@@ -45,10 +45,13 @@ func TestFindCollectionFields(t *testing.T) {
 			sqlmock.AnyArg(),
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"name", "domain", "name", "type", "ref", "is_list"}))
-	_, err = o.FindCollectionFieldsBySpec(context.Background(), map[dao.CollectionSpec]mapset.Set[string]{
-		{Namespace: "namespace", Name: "name1"}: mapset.NewSet("field1", "field2"),
-		{Namespace: "namespace", Name: "name2"}: mapset.NewSet("field3", "field4"),
-	})
+	_, err = o.FindCollectionFieldsBySpec(
+		context.Background(),
+		map[dao.CollectionSpec]mapset.Set[string]{
+			{Namespace: "namespace", Name: "name1"}: mapset.NewSet("field1", "field2"),
+			{Namespace: "namespace", Name: "name2"}: mapset.NewSet("field3", "field4"),
+		},
+	)
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

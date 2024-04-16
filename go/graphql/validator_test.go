@@ -90,7 +90,7 @@ func TestValidateRootSelections(t *testing.T) {
 
 	validator := graphql.NewValidator(mockDao)
 
-	err = validator.ValidateRootSelections(context.Background(), doc)
+	_, err = validator.ValidateRootSelections(context.Background(), doc)
 	assert.NoError(t, err)
 }
 

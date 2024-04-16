@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE `_collections` (
+CREATE TABLE `collections` (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     domain TEXT NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE `_collections` (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE `_collection_fields` (
+CREATE TABLE `collection_fields` (
     id INTEGER PRIMARY KEY,
     collection_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -20,5 +20,5 @@ CREATE TABLE `_collection_fields` (
 );
 
 -- +goose Down
-DROP TABLE _collections;
-DROP TABLE _collection_field;
+DROP TABLE collections;
+DROP TABLE collection_field;

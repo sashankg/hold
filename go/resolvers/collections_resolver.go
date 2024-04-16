@@ -93,7 +93,7 @@ func collectRequiredCollections(
 	outputType graphql.Output,
 ) []string {
 	collections := []string{}
-	objectType := outputType.(*graphql.Object)
+			objectType := outputType.(*graphql.Object)
 	collections = append(collections, objectType.Name())
 	for _, s := range selectionSet.Selections {
 		if s, ok := s.(*ast.Field); ok && s.SelectionSet != nil &&

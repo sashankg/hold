@@ -68,6 +68,6 @@ func (o *daoImpl) GetRecord(
 	fmt.Println(recordQuery.ToSql())
 
 	var json string
-	err := recordQuery.RunWith(o.db).QueryRowContext(ctx).Scan(&json)
+	err := recordQuery.RunWith(o.recordDb).QueryRowContext(ctx).Scan(&json)
 	return json, err
 }

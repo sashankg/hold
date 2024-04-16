@@ -90,7 +90,7 @@ func TestGraphqlHandler_ValidateRootSelections(t *testing.T) {
 
 	h := handlers.NewGraphqlHandler(mockDao)
 
-	err = h.ValidateRootSelections(context.Background(), doc)
+	err = h.Validate(context.Background(), doc)
 	assert.NoError(t, err)
 }
 
