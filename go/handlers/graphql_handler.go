@@ -32,15 +32,14 @@ func (h *GraphqlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	println("successfully parsed")
 
-	valRes, err := h.validator.ValidateRootSelections(r.Context(), doc)
-	if err != nil {
+	if err := h.validator.ValidateRootSelections(r.Context(), doc); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 	println("successfully validated")
 
-	responseData, err := h.resolver.Resolve(r.Context(), doc, valRes)
+	responseData, err := h.resolver.Resolve(r.Context(), doc)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))

@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	dao "github.com/sashankg/hold/dao"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -55,49 +54,34 @@ func (mr *MockDaoMockRecorder) AddCollection(ctx, collection any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCollection", reflect.TypeOf((*MockDao)(nil).AddCollection), ctx, collection)
 }
 
-// FindCollectionFieldsByCollectionId mocks base method.
-func (m *MockDao) FindCollectionFieldsByCollectionId(ctx context.Context, fieldMap map[int]mapset.Set[string]) (map[int]*dao.Collection, error) {
+// FindCollectionById mocks base method.
+func (m *MockDao) FindCollectionById(ctx context.Context, id int) (*dao.Collection, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindCollectionFieldsByCollectionId", ctx, fieldMap)
-	ret0, _ := ret[0].(map[int]*dao.Collection)
+	ret := m.ctrl.Call(m, "FindCollectionById", ctx, id)
+	ret0, _ := ret[0].(*dao.Collection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindCollectionFieldsByCollectionId indicates an expected call of FindCollectionFieldsByCollectionId.
-func (mr *MockDaoMockRecorder) FindCollectionFieldsByCollectionId(ctx, fieldMap any) *gomock.Call {
+// FindCollectionById indicates an expected call of FindCollectionById.
+func (mr *MockDaoMockRecorder) FindCollectionById(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollectionFieldsByCollectionId", reflect.TypeOf((*MockDao)(nil).FindCollectionFieldsByCollectionId), ctx, fieldMap)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollectionById", reflect.TypeOf((*MockDao)(nil).FindCollectionById), ctx, id)
 }
 
-// FindCollectionFieldsBySpec mocks base method.
-func (m *MockDao) FindCollectionFieldsBySpec(ctx context.Context, fieldMap map[dao.CollectionSpec]mapset.Set[string]) (map[dao.CollectionSpec]*dao.Collection, error) {
+// FindCollectionBySpec mocks base method.
+func (m *MockDao) FindCollectionBySpec(ctx context.Context, spec dao.CollectionSpec) (*dao.Collection, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindCollectionFieldsBySpec", ctx, fieldMap)
-	ret0, _ := ret[0].(map[dao.CollectionSpec]*dao.Collection)
+	ret := m.ctrl.Call(m, "FindCollectionBySpec", ctx, spec)
+	ret0, _ := ret[0].(*dao.Collection)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// FindCollectionFieldsBySpec indicates an expected call of FindCollectionFieldsBySpec.
-func (mr *MockDaoMockRecorder) FindCollectionFieldsBySpec(ctx, fieldMap any) *gomock.Call {
+// FindCollectionBySpec indicates an expected call of FindCollectionBySpec.
+func (mr *MockDaoMockRecorder) FindCollectionBySpec(ctx, spec any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollectionFieldsBySpec", reflect.TypeOf((*MockDao)(nil).FindCollectionFieldsBySpec), ctx, fieldMap)
-}
-
-// FindCollections mocks base method.
-func (m *MockDao) FindCollections(ctx context.Context, names []string) (map[int]*dao.Collection, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindCollections", ctx, names)
-	ret0, _ := ret[0].(map[int]*dao.Collection)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindCollections indicates an expected call of FindCollections.
-func (mr *MockDaoMockRecorder) FindCollections(ctx, names any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollections", reflect.TypeOf((*MockDao)(nil).FindCollections), ctx, names)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollectionBySpec", reflect.TypeOf((*MockDao)(nil).FindCollectionBySpec), ctx, spec)
 }
 
 // GetRecord mocks base method.

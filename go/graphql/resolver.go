@@ -4,22 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/sashankg/hold/dao"
 )
 
 type Resolver interface {
-	Resolve(context.Context, *ast.Document, *ValidationResult) ([]byte, error)
+	Resolve(context.Context, *ast.Document) ([]byte, error)
 }
 
 type resolverImpl struct {
-	dao dao.RecordDao
+	dao dao.Dao
 }
 
 var _ Resolver = (*resolverImpl)(nil)
 
-func NewResolver(dao dao.RecordDao) *resolverImpl {
+func NewResolver(dao dao.Dao) *resolverImpl {
 	return &resolverImpl{
 		dao: dao,
 	}
@@ -29,16 +30,15 @@ func NewResolver(dao dao.RecordDao) *resolverImpl {
 func (r *resolverImpl) Resolve(
 	ctx context.Context,
 	doc *ast.Document,
-	valRes *ValidationResult,
 ) ([]byte, error) {
 	result := map[string]JsonValue{}
-	iterateRootFields(doc, func(field *ast.Field) error {
+	err := iterateRootFields(doc, func(field *ast.Field) error {
 		collectionSpec, schemaErr := rootFieldToCollectionSpec(field)
 		if schemaErr != nil {
 			return schemaErr
 		}
-		collectionId, ok := valRes.RootFieldCollectionIds[*collectionSpec]
-		if !ok {
+		collectionId, err := r.dao.GetCollectionId(ctx, *collectionSpec)
+		if err != nil {
 			return fmt.Errorf("collection not found for root field %s", field.Name.Value)
 		}
 		recordId, err := getRecordId(field)
@@ -50,11 +50,13 @@ func (r *resolverImpl) Resolve(
 			recordId,
 			getDaoSelection(field.SelectionSet),
 			collectionId,
-			valRes.CollectionMap,
 		)
 		result[field.Name.Value] = JsonValue(json)
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(result)
 }
 
@@ -67,9 +69,8 @@ func (v JsonValue) MarshalJSON() ([]byte, error) {
 func getRecordId(field *ast.Field) (int, error) {
 	for _, arg := range field.Arguments {
 		if arg.Name.Value == "id" {
-			value := arg.Value.GetValue()
-			if value, ok := value.(int); ok {
-				return value, nil
+			if value, ok := arg.Value.(*ast.IntValue); ok {
+				return strconv.Atoi(value.GetValue().(string))
 			}
 			return 0, fmt.Errorf("id arg needs to be int")
 		}

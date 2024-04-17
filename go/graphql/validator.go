@@ -2,9 +2,9 @@ package graphql
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/sashankg/hold/dao"
 )
@@ -13,7 +13,7 @@ type Validator interface {
 	ValidateRootSelections(
 		ctx context.Context,
 		doc *ast.Document,
-	) (*ValidationResult, error)
+	) error
 }
 
 type validatorImpl struct {
@@ -36,107 +36,33 @@ type ValidationResult struct {
 func (h *validatorImpl) ValidateRootSelections(
 	ctx context.Context,
 	doc *ast.Document,
-) (*ValidationResult, error) {
-	fieldMap, err := aggregateRequiredFieldsBySpec(doc)
-	if err != nil {
-		return nil, err
-	}
-	collectionMap := map[int]*dao.Collection{}
-	rootFieldCollectionIds := map[dao.CollectionSpec]int{}
-	collections, err := h.dao.FindCollectionFieldsBySpec(ctx, fieldMap)
-	if err != nil {
-		return nil, err
-	}
-	nestedSelections := map[int][]*ast.SelectionSet{}
-	err = iterateRootFields(doc, func(field *ast.Field) error {
-		collectionSpec, err := rootFieldToCollectionSpec(field)
+) error {
+	return iterateRootFields(doc, func(field *ast.Field) error {
+		collectionSpec, schemaErr := rootFieldToCollectionSpec(field)
+		if schemaErr != nil {
+			return schemaErr
+		}
+		collection, err := h.dao.FindCollectionBySpec(ctx, *collectionSpec)
 		if err != nil {
-			return err
+			return errors.Join(
+				NewInvalidSchemaError("invalid collection: "+collectionSpec.Name, field.Loc),
+				err,
+			)
 		}
-		collection, ok := collections[*collectionSpec]
-		if !ok {
-			return NewInvalidSchemaError("invalid collection: "+collectionSpec.Name, field.Loc)
-		}
-		collectionMap[collection.Id] = mergeCollectionFields(
-			collectionMap[collection.Id],
-			collection,
-		)
-		rootFieldCollectionIds[*collectionSpec] = collection.Id
-		if !ok {
-			// not a real collection
-			return NewInvalidSchemaError("invalid collection: "+collectionSpec.Name, field.Loc)
-		}
-		aggregateNestedSelections(collection, field.SelectionSet, nestedSelections)
+		h.validateNestedSelections(ctx, field.SelectionSet, collection)
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.validateNestedSelections(ctx, nestedSelections, collectionMap)
-	if err != nil {
-		return nil, err
-	}
-	return &ValidationResult{
-		CollectionMap:          collectionMap,
-		RootFieldCollectionIds: rootFieldCollectionIds,
-	}, nil
 }
 
 func (h *validatorImpl) validateNestedSelections(
 	ctx context.Context,
-	selections map[int][]*ast.SelectionSet,
-	collectionMap map[int]*dao.Collection, /*inout*/
+	selections *ast.SelectionSet,
+	collectionMap *dao.Collection, /*inout*/
 ) error {
-	if len(selections) == 0 {
-		return nil
-	}
-	fields := map[int]mapset.Set[string]{}
-	for ref, selectionSets := range selections {
-		if _, ok := fields[ref]; !ok {
-			fields[ref] = mapset.NewSet[string]()
-		}
-		for _, selectionSet := range selectionSets {
-			for _, sel := range selectionSet.Selections {
-				switch sel := sel.(type) {
-				case *ast.Field:
-					fields[ref].Add(sel.Name.Value)
-				}
-			}
-		}
-	}
-	collections, err := h.dao.FindCollectionFieldsByCollectionId(ctx, fields)
-	if err != nil {
-		return err
-	}
-	for _, collection := range collections {
-		collectionMap[collection.Id] = mergeCollectionFields(
-			collectionMap[collection.Id],
-			collection,
-		)
-	}
-	nestedSelections := map[int][]*ast.SelectionSet{}
-	for ref, selectionSets := range selections {
-		collection, ok := collections[ref]
-		if !ok {
-			return fmt.Errorf("invalid collection id: %d", ref)
-		}
-		for _, selectionSet := range selectionSets {
-			aggregateNestedSelections(collection, selectionSet, nestedSelections)
-		}
-	}
-	return h.validateNestedSelections(ctx, nestedSelections, collectionMap)
-}
-
-func aggregateNestedSelections(
-	collection *dao.Collection,
-	selectionSet *ast.SelectionSet,
-	nestedSelections map[int][]*ast.SelectionSet, /*inout*/
-) error {
-	for _, sel := range selectionSet.Selections {
+	for _, sel := range selections.Selections {
 		switch sel := sel.(type) {
 		case *ast.Field:
-			field, ok := collection.Fields[sel.Name.Value]
+			field, ok := collectionMap.Fields[sel.Name.Value]
 			if !ok {
 				// not a real field
 				return NewInvalidSchemaError("invalid field: "+sel.Name.Value, sel.Loc)
@@ -152,36 +78,16 @@ func aggregateNestedSelections(
 			if sel.SelectionSet == nil {
 				continue
 			}
-			nestedSelections[field.Ref] = append(nestedSelections[field.Ref], sel.SelectionSet)
+			nestedCollection, err := h.dao.FindCollectionById(ctx, field.Ref)
+			if err != nil {
+				return NewInvalidSchemaError("invalid collection reference: "+sel.Name.Value, sel.Loc)
+			}
+			if err := h.validateNestedSelections(ctx, sel.SelectionSet, nestedCollection); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
-}
-
-func aggregateRequiredFieldsBySpec(
-	doc *ast.Document,
-) (map[dao.CollectionSpec]mapset.Set[string], error) {
-	fields := map[dao.CollectionSpec]mapset.Set[string]{}
-	err := iterateRootFields(doc, func(field *ast.Field) error {
-		collectionSpec, err := rootFieldToCollectionSpec(field)
-		if err != nil {
-			return err
-		}
-		if _, ok := fields[*collectionSpec]; !ok {
-			fields[*collectionSpec] = mapset.NewSet[string]()
-		}
-		for _, sel := range field.SelectionSet.Selections {
-			switch sel := sel.(type) {
-			case *ast.Field:
-				fields[*collectionSpec].Add(sel.Name.Value)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return fields, nil
 }
 
 type InvalidSchemaError struct {
