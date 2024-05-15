@@ -2,7 +2,6 @@ package dao
 
 import (
 	"context"
-	"fmt"
 
 	sq "github.com/Masterminds/squirrel"
 )
@@ -35,11 +34,8 @@ func (o *daoImpl) GetRecord(
 	collectionId int,
 ) ([]byte, error) {
 	recordQuery := o.buildRecordQuery(ctx, sq.Expr(`?`, id), selection, collectionId)
-	fmt.Println(recordQuery.ToSql())
-
 	var json []byte
 	err := recordQuery.RunWith(o.recordDb).QueryRowContext(ctx).Scan(&json)
-	println(string(json))
 	return json, err
 }
 

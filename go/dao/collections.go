@@ -11,7 +11,9 @@ type CollectionDao interface {
 	FindCollectionBySpec(ctx context.Context, spec CollectionSpec) (*Collection, error)
 	FindCollectionById(ctx context.Context, id int) (*Collection, error)
 	GetCollectionId(ctx context.Context, spec CollectionSpec) (int, error)
-	AddCollection(ctx context.Context, collection *Collection) error
+
+	AddCollections(ctx context.Context, collection []*Collection /*inout*/) error
+	AddCollectionField(ctx context.Context, collectionId int, field CollectionField) error
 }
 
 var _ CollectionDao = (*daoImpl)(nil)
@@ -108,73 +110,123 @@ func (o *daoImpl) populateFields(
 	return nil
 }
 
-func (o *daoImpl) AddCollection(ctx context.Context, collection *Collection) error {
-	tx, err := o.schemaDb.BeginTx(ctx, nil)
+func (o *daoImpl) AddCollections(
+	ctx context.Context,
+	collections []*Collection, /*inout*/
+) error {
+	schemaTx, err := o.schemaDb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer schemaTx.Rollback()
 
-	result, err := sq.Insert("collections").
-		Columns(
-			"name",
-			"domain",
-			"version",
-		).
-		Values(
-			collection.Name,
-			collection.Domain,
-			collection.Version,
-		).
-		RunWith(tx).ExecContext(ctx)
+	recordTx, err := o.recordDb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	collectionId, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
+	defer recordTx.Rollback()
 
-	sqlCols := []string{}
+	for _, collection := range collections {
+		result, err := sq.Insert("collections").
+			Columns(
+				"name",
+				"domain",
+				"version",
+			).
+			Values(
+				collection.Name,
+				collection.Domain,
+				collection.Version,
+			).
+			RunWith(schemaTx).ExecContext(ctx)
+		if err != nil {
+			return err
+		}
+		collectionId, err := result.LastInsertId()
+		if err != nil {
+			return err
+		}
+		collection.Id = int(collectionId)
 
-	for _, field := range collection.Fields {
-		_, err := sq.Insert("collection_fields").
+		insertFieldsQuery := sq.Insert("collection_fields").
 			Columns(
 				"collection_id",
 				"name",
 				"type",
 				"ref",
 				"is_list",
-			).
-			Values(
-				collectionId,
-				field.Name,
-				field.Type,
-				field.Ref,
-				field.IsList,
-			).
-			RunWith(tx).ExecContext(ctx)
+			)
+		sqlCols := []string{}
+		for _, field := range collection.Fields {
+			insertFieldsQuery = insertFieldsQuery.
+				Values(
+					collectionId,
+					field.Name,
+					field.Type,
+					field.Ref,
+					field.IsList,
+				)
+			sqlCols = append(sqlCols, field.Name+" "+field.Type)
+		}
+		_, err = insertFieldsQuery.RunWith(schemaTx).ExecContext(ctx)
 		if err != nil {
 			return err
 		}
-		sqlCols = append(sqlCols, field.Name+" "+field.Type)
-	}
 
-	createTable, _, err := sq.ConcatExpr(`CREATE TABLE `, collection.Name, ` (
+		createTable, _, err := sq.ConcatExpr(`CREATE TABLE `, collection.Name, ` (
 		id INTEGER PRIMARY KEY,`,
-		strings.Join(sqlCols, ", "),
-		`)`,
-	).ToSql()
+			strings.Join(sqlCols, ", "),
+			`)`,
+		).ToSql()
+		if err != nil {
+			return err
+		}
+		_, err = recordTx.ExecContext(ctx, createTable)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+// AddCollectionField implements CollectionDao.
+func (o *daoImpl) AddCollectionField(
+	ctx context.Context,
+	collectionId int,
+	field CollectionField,
+) error {
+	schemaTx, err := o.schemaDb.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, createTable)
+	defer schemaTx.Rollback()
+
+	recordTx, err := o.recordDb.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer recordTx.Rollback()
+
+	insertFieldQuery := sq.Insert("collection_fields").
+		Columns(
+			"collection_id",
+			"name",
+			"type",
+			"ref",
+			"is_list",
+		).Values(
+		collectionId,
+		field.Name,
+		field.Type,
+		field.Ref,
+		field.IsList,
+	)
+	_, err = insertFieldQuery.RunWith(schemaTx).ExecContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // GetCollectionId implements CollectionDao.

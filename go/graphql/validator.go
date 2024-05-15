@@ -20,9 +20,7 @@ type validatorImpl struct {
 	dao dao.CollectionDao
 }
 
-var _ Validator = (*validatorImpl)(nil)
-
-func NewValidator(dao dao.CollectionDao) *validatorImpl {
+func NewValidator(dao dao.CollectionDao) Validator {
 	return &validatorImpl{
 		dao: dao,
 	}

@@ -27,7 +27,7 @@ func iterateRootFields(doc *ast.Document, yield func(*ast.Field) error) error {
 
 func rootFieldToCollectionSpec(
 	def *ast.Field,
-) (*dao.CollectionSpec, *InvalidSchemaError) {
+) (*dao.CollectionSpec, error) {
 	matcher, err := regexp.Compile("^(?:find|list|patch|set)([A-Z][a-zA-Z]*)$")
 	if err != nil {
 		panic(err)
@@ -46,7 +46,7 @@ func rootFieldToCollectionSpec(
 	return &dao.CollectionSpec{Namespace: namespace, Name: matches[1]}, nil
 }
 
-func getNamespace(directives []*ast.Directive) (string, *InvalidSchemaError) {
+func getNamespace(directives []*ast.Directive) (string, error) {
 	for _, directive := range directives {
 		if directive.Name.Value != "namespace" {
 			continue

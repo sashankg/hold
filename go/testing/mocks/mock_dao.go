@@ -40,18 +40,32 @@ func (m *MockDao) EXPECT() *MockDaoMockRecorder {
 	return m.recorder
 }
 
-// AddCollection mocks base method.
-func (m *MockDao) AddCollection(ctx context.Context, collection *dao.Collection) error {
+// AddCollectionField mocks base method.
+func (m *MockDao) AddCollectionField(ctx context.Context, collectionId int, field dao.CollectionField) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddCollection", ctx, collection)
+	ret := m.ctrl.Call(m, "AddCollectionField", ctx, collectionId, field)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddCollection indicates an expected call of AddCollection.
-func (mr *MockDaoMockRecorder) AddCollection(ctx, collection any) *gomock.Call {
+// AddCollectionField indicates an expected call of AddCollectionField.
+func (mr *MockDaoMockRecorder) AddCollectionField(ctx, collectionId, field any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCollection", reflect.TypeOf((*MockDao)(nil).AddCollection), ctx, collection)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCollectionField", reflect.TypeOf((*MockDao)(nil).AddCollectionField), ctx, collectionId, field)
+}
+
+// AddCollections mocks base method.
+func (m *MockDao) AddCollections(ctx context.Context, collection []*dao.Collection) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddCollections", ctx, collection)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddCollections indicates an expected call of AddCollections.
+func (mr *MockDaoMockRecorder) AddCollections(ctx, collection any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCollections", reflect.TypeOf((*MockDao)(nil).AddCollections), ctx, collection)
 }
 
 // FindCollectionById mocks base method.
@@ -84,17 +98,32 @@ func (mr *MockDaoMockRecorder) FindCollectionBySpec(ctx, spec any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindCollectionBySpec", reflect.TypeOf((*MockDao)(nil).FindCollectionBySpec), ctx, spec)
 }
 
-// GetRecord mocks base method.
-func (m *MockDao) GetRecord(ctx context.Context, id int, selection []dao.Selection, collectionId int, collectionMap map[int]*dao.Collection) (string, error) {
+// GetCollectionId mocks base method.
+func (m *MockDao) GetCollectionId(ctx context.Context, spec dao.CollectionSpec) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRecord", ctx, id, selection, collectionId, collectionMap)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetCollectionId", ctx, spec)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCollectionId indicates an expected call of GetCollectionId.
+func (mr *MockDaoMockRecorder) GetCollectionId(ctx, spec any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCollectionId", reflect.TypeOf((*MockDao)(nil).GetCollectionId), ctx, spec)
+}
+
+// GetRecord mocks base method.
+func (m *MockDao) GetRecord(ctx context.Context, id int, selection []dao.Selection, collectionId int) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRecord", ctx, id, selection, collectionId)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRecord indicates an expected call of GetRecord.
-func (mr *MockDaoMockRecorder) GetRecord(ctx, id, selection, collectionId, collectionMap any) *gomock.Call {
+func (mr *MockDaoMockRecorder) GetRecord(ctx, id, selection, collectionId any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRecord", reflect.TypeOf((*MockDao)(nil).GetRecord), ctx, id, selection, collectionId, collectionMap)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRecord", reflect.TypeOf((*MockDao)(nil).GetRecord), ctx, id, selection, collectionId)
 }

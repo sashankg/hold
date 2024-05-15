@@ -1,0 +1,10 @@
+type Post {
+    title: String
+    body: String
+    author: Person
+}
+
+type Person {
+    firstName: String
+    lastName: String
+}
