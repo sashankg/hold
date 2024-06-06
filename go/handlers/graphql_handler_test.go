@@ -9,7 +9,7 @@ import (
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/sashankg/hold/dao"
 	"github.com/sashankg/hold/handlers"
-	"github.com/sashankg/hold/mocks"
+	"github.com/sashankg/hold/testing/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
