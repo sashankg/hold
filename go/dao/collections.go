@@ -13,7 +13,7 @@ type CollectionDao interface {
 	GetCollectionId(ctx context.Context, spec CollectionSpec) (int, error)
 
 	AddCollections(ctx context.Context, collection []*Collection /*inout*/) error
-	AddCollectionField(ctx context.Context, collectionId int, field CollectionField) error
+	AddCollectionField(ctx context.Context, collection *Collection, field CollectionField) error
 }
 
 var _ CollectionDao = (*daoImpl)(nil)
@@ -166,7 +166,7 @@ func (o *daoImpl) AddCollections(
 					field.Ref,
 					field.IsList,
 				)
-			sqlCols = append(sqlCols, field.Name+" "+field.Type)
+			sqlCols = append(sqlCols, field.Name+" "+schemaTypeToSqlType(field.Type))
 		}
 		_, err = insertFieldsQuery.RunWith(schemaTx).ExecContext(ctx)
 		if err != nil {
@@ -186,13 +186,31 @@ func (o *daoImpl) AddCollections(
 			return err
 		}
 	}
-	return nil
+	if err := schemaTx.Commit(); err != nil {
+		return err
+	}
+	return recordTx.Commit()
+}
+
+func schemaTypeToSqlType(schemaType string) string {
+	switch schemaType {
+	case "String":
+		return "TEXT"
+	case "Boolean":
+	case "Int":
+	case "ID":
+		return "INTEGER"
+	case "Float":
+		return "REAL"
+	}
+	// object types will be referenced by their collection id
+	return "INTEGER"
 }
 
 // AddCollectionField implements CollectionDao.
 func (o *daoImpl) AddCollectionField(
 	ctx context.Context,
-	collectionId int,
+	collection *Collection,
 	field CollectionField,
 ) error {
 	schemaTx, err := o.schemaDb.BeginTx(ctx, nil)
@@ -200,12 +218,6 @@ func (o *daoImpl) AddCollectionField(
 		return err
 	}
 	defer schemaTx.Rollback()
-
-	recordTx, err := o.recordDb.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer recordTx.Rollback()
 
 	insertFieldQuery := sq.Insert("collection_fields").
 		Columns(
@@ -215,7 +227,7 @@ func (o *daoImpl) AddCollectionField(
 			"ref",
 			"is_list",
 		).Values(
-		collectionId,
+		collection.Id,
 		field.Name,
 		field.Type,
 		field.Ref,
@@ -225,8 +237,16 @@ func (o *daoImpl) AddCollectionField(
 	if err != nil {
 		return err
 	}
-
-	return nil
+	addColumn, _, err := sq.ConcatExpr(`ALTER TABLE `, collection.Name, ` ADD COLUMN `, field.Name, ` `, schemaTypeToSqlType(field.Type)).
+		ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = o.recordDb.ExecContext(ctx, addColumn)
+	if err != nil {
+		return err
+	}
+	return schemaTx.Commit()
 }
 
 // GetCollectionId implements CollectionDao.

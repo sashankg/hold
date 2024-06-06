@@ -47,8 +47,9 @@ func (r *registrarImpl) RegisterSchema(ctx context.Context, doc *ast.Document) e
 				Fields: map[string]dao.CollectionField{},
 			}
 			i := len(collections)
+			objectFields = append(objectFields, []objectFieldSpec{})
 			for _, fieldDef := range def.Fields {
-				field, isScalar := getScalarCollectionField(fieldDef, false, true)
+				field, isScalar := getScalarCollectionField(fieldDef.Name.Value, fieldDef.Type, false, true)
 				if isScalar {
 					collection.Fields[fieldDef.Name.Value] = field
 				} else {
@@ -71,7 +72,6 @@ func (r *registrarImpl) RegisterSchema(ctx context.Context, doc *ast.Document) e
 	}
 
 	for i, fields := range objectFields {
-		id := collections[i].Id
 		for _, spec := range fields {
 			refCollection, err := r.dao.FindCollectionBySpec(
 				ctx,
@@ -82,7 +82,7 @@ func (r *registrarImpl) RegisterSchema(ctx context.Context, doc *ast.Document) e
 			}
 			field := spec.CollectionField
 			field.Ref = refCollection.Id
-			r.dao.AddCollectionField(ctx, id, field)
+			r.dao.AddCollectionField(ctx, collections[i], field)
 		}
 	}
 
@@ -90,11 +90,12 @@ func (r *registrarImpl) RegisterSchema(ctx context.Context, doc *ast.Document) e
 }
 
 func getScalarCollectionField(
-	fieldDef *ast.FieldDefinition,
+	fieldName string,
+	fieldType ast.Type,
 	isList bool,
 	isNullable bool,
 ) (dao.CollectionField, bool) {
-	switch fieldType := fieldDef.Type.(type) {
+	switch fieldType := fieldType.(type) {
 	case *ast.Named:
 		switch fieldType.Name.Value {
 		case "Int":
@@ -107,19 +108,20 @@ func getScalarCollectionField(
 			fallthrough
 		case "ID":
 			return dao.CollectionField{
-				Name:   fieldDef.Name.Value,
+				Name:   fieldName,
 				Type:   fieldType.Name.Value,
 				IsList: isList,
 			}, true
 		}
 		return dao.CollectionField{
-			Name:   fieldDef.Name.Value,
+			Name:   fieldName,
+			Type:   fieldType.Name.Value,
 			IsList: isList,
 		}, false
 	case *ast.List:
-		return getScalarCollectionField(fieldDef, true, isNullable)
+		return getScalarCollectionField(fieldName, fieldType.Type, true, isNullable)
 	case *ast.NonNull:
-		return getScalarCollectionField(fieldDef, isList, false)
+		return getScalarCollectionField(fieldName, fieldType.Type, isList, false)
 	}
 	panic("invalid field definition type")
 }
