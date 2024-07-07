@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/sashankg/hold/server"
+	"github.com/sashankg/hold/util"
 )
 
 type UploadHandler struct {
@@ -30,7 +30,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		reader, err := r.MultipartReader()
 		if err != nil {
-			server.InternalServerError(w, err)
+			util.InternalServerError(w, err)
 			return
 		}
 		for {
@@ -39,7 +39,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err == io.EOF {
 					break
 				}
-				server.InternalServerError(w, err)
+				util.InternalServerError(w, err)
 				return
 			}
 			println(part.FileName(), part.FormName(), part.Header)

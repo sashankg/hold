@@ -21,6 +21,8 @@ func NewGraphqlHandler(validator graphql.Validator, resolver graphql.Resolver) *
 	}
 }
 
+var _ http.Handler = &GraphqlHandler{}
+
 func (h *GraphqlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	opts := gql_handler.NewRequestOptions(r)
 
@@ -51,8 +53,4 @@ func (h *GraphqlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	w.WriteHeader(http.StatusOK)
 	w.Write(response)
-}
-
-func (h *GraphqlHandler) Route() string {
-	return "/graphql"
 }
