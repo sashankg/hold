@@ -1,0 +1,42 @@
+{
+  "name": "libp2p-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-noise": "^15.0.0",
+    "@chainsafe/libp2p-yamux": "^6.0.2",
+    "@libp2p/circuit-relay-v2": "^1.0.25",
+    "@libp2p/http-fetch": "^1.1.0",
+    "@libp2p/mplex": "^10.1.0",
+    "@libp2p/peer-id": "^4.1.4",
+    "@libp2p/tcp": "^9.0.27",
+    "@libp2p/websockets": "^8.0.25",
+    "@libp2p/webtransport": "^4.0.33",
+    "@multiformats/multiaddr": "^12.3.0",
+    "@perseveranza-pets/milo": "^0.2.1",
+    "it-pipe": "^3.0.1",
+    "libp2p": "1.6.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vite-plugin-pwa": "^0.20.0"
+  }
+}
