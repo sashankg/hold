@@ -11,12 +11,11 @@ import (
 	"net/http"
 	"net/http/pprof"
 
-	_ "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p"
 	gostream "github.com/libp2p/go-libp2p-gostream"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 	"github.com/sashankg/hold/dao"
@@ -51,22 +50,31 @@ func main() {
 		panic(err)
 	}
 
-	relayAddrInfo, err := peer.AddrInfoFromString(
-		"/ip4/127.0.0.1/tcp/4002/ws/p2p/QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3",
-	)
-	if err != nil {
-		panic(err)
-	}
-	println("Relay ID", relayAddrInfo.ID.String())
-	println("Relay Addr", relayAddrInfo.Addrs[0].String())
+	// relayAddrInfo, err := peer.AddrInfoFromString(
+	//     "/ip4/127.0.0.1/tcp/4002/ws/p2p/QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3",
+	// )
+	// if err != nil {
+	//     panic(err)
+	// }
+	// println("Relay ID", relayAddrInfo.ID.String())
+	// println("Relay Addr", relayAddrInfo.Addrs[0].String())
 
 	host, err := libp2p.New(
 		libp2p.Identity(privKey),
-		libp2p.EnableAutoRelayWithStaticRelays(
-			[]peer.AddrInfo{
-				*relayAddrInfo,
-			},
+		libp2p.ChainOptions(
+			libp2p.Transport(tcp.NewTCPTransport),
+			libp2p.Transport(websocket.New),
 		),
+		libp2p.ListenAddrStrings(
+			"/ip4/127.0.0.1/tcp/4001",
+			"/ip4/127.0.0.1/tcp/4002/ws",
+			// "/ip4/0.0.0.0/tcp/4001/wss",
+		),
+		// libp2p.EnableAutoRelayWithStaticRelays(
+		//     []peer.AddrInfo{
+		//         *relayAddrInfo,
+		//     },
+		// ),
 	)
 	if err != nil {
 		panic(err)
@@ -77,16 +85,28 @@ func main() {
 		println("Listening on", addr.String())
 	}
 
-	reservation, err := client.Reserve(context.Background(), host, *relayAddrInfo)
-	if err != nil {
-		panic(err)
-	}
-	// println("Reservation", reservation.Addrs[0].String())
-	println("Reservation", reservation.LimitData)
+	host.SetStreamHandler("/test", func(s network.Stream) {
+		bytes, err := io.ReadAll(s)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Printf("Received: %v", bytes)
+	})
+
+	// reservation, err := client.Reserve(context.Background(), host, *relayAddrInfo)
+	// if err != nil {
+	//     panic(err)
+	// }
+	// // println("Reservation", reservation.Addrs[0].String())
+	// println("Reservation", reservation.LimitData)
 
 	mux := http.NewServeMux()
 	mux.Handle("/graph", handlers.NewGraphqlHandler(validator, resolver))
 	mux.Handle("/upload", handlers.NewUploadHandler(&handlers.FnvHasher{}))
+	mux.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("=========== Request %v", r)
+		w.Write([]byte("Hello, world!"))
+	})
 
 	server := NewServer(mux)
 

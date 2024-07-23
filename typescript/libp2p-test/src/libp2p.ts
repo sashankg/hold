@@ -12,8 +12,6 @@ import * as websocketFilters from '@libp2p/websockets/filters'
 
 localStorage.setItem('debug', '*libp2p:*')
 
-const p2pURIPrefix = "p2p:"
-
 const node = await createLibp2p({
   streamMuxers: [
     // mplex(),
@@ -32,13 +30,8 @@ const node = await createLibp2p({
     denyDialMultiaddr: () => false,
   },
   services: {
-    httpFetch: (components: FetchComponents) => {
-      const httpService = http()(components)
-      return (req: Request, init?: RequestInit) => {
-        if (req.url.startsWith(p2pURIPrefix)) {
-          req.arrayBuffer
-        }
-      }
+    http: (components: FetchComponents) => {
+      return http()(components)
     }
   },
   logger: {
@@ -50,37 +43,37 @@ const node = await createLibp2p({
       return logger
     }
   },
-  peerRouters: [
-    (components) => {
-      return {
-        findPeer: async (id, options) => {
-          return {
-            id,
-            multiaddrs: [
-              multiaddr("/ip4/127.0.0.1/tcp/4002/ws/p2p/QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3/p2p-circuit")
-            ]
-          }
-        },
-        getClosestPeers: async function*() { }
-      }
-    }
-  ],
+  // peerRouters: [
+  //   (components) => {
+  //     return {
+  //       findPeer: async (id, options) => {
+  //         return {
+  //           id,
+  //           multiaddrs: [
+  //             multiaddr("/ip4/127.0.0.1/tcp/4002/ws/p2p/QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3/p2p-circuit")
+  //           ]
+  //         }
+  //       },
+  //       getClosestPeers: async function*() { }
+  //     }
+  //   }
+  // ],
   connectionManager: {
     minConnections: 0,
   }
 })
 
-const relay = await node.peerStore.save(peerIdFromString("QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3"), {
-  protocols: [RELAY_V2_HOP_CODEC],
-  addresses: [
-    {
-      multiaddr: multiaddr("/ip4/127.0.0.1/tcp/4002/ws/"),
-      isCertified: true
-    }
-  ]
-})
+// const relay = await node.peerStore.save(peerIdFromString("QmNpBvAKWrjigDHP4Mn3LpqCmin5F2K9TiVFoFGTC6ayV3"), {
+//   protocols: [RELAY_V2_HOP_CODEC],
+//   addresses: [
+//     {
+//       multiaddr: multiaddr("/ip4/127.0.0.1/tcp/4002/ws/"),
+//       isCertified: true
+//     }
+//   ]
+// })
 
-console.log(relay)
+// console.log(relay)
 
 // const conn = await node.dial(relay.id)
 
@@ -154,43 +147,43 @@ class TestRequest implements Request {
   }
   get cache(): RequestCache {
     return this._request.cache
-  };
+  }
   get credentials(): RequestCredentials {
     return this._request.credentials
-  };
+  }
   get destination(): RequestDestination {
     return this._request.destination
-  };
+  }
   get headers(): Headers {
     return this._headers
-  };
+  }
   get integrity(): string {
     return this._request.integrity
-  };
+  }
   get keepalive(): boolean {
     return this._request.keepalive
-  };
+  }
   get method(): string {
     return this._request.method
-  };
+  }
   get mode(): RequestMode {
     return this._request.mode
-  };
+  }
   get redirect(): RequestRedirect {
     return this._request.redirect
-  };
+  }
   get referrer(): string {
     return this._request.referrer
-  };
+  }
   get referrerPolicy(): ReferrerPolicy {
     return this._request.referrerPolicy
-  };
+  }
   get signal(): AbortSignal {
     return this._request.signal
-  };
+  }
   get url(): string {
     return this._request.url
-  };
+  }
   clone(): Request {
     return this._request.clone()
   }
@@ -199,7 +192,7 @@ class TestRequest implements Request {
   }
   get bodyUsed(): boolean {
     return this._request.bodyUsed
-  };
+  }
   arrayBuffer(): Promise<ArrayBuffer> {
     return this._request.arrayBuffer()
   }
@@ -218,7 +211,7 @@ class TestRequest implements Request {
 }
 
 const resp = await node.services.http.fetch(
-  new TestRequest("multiaddr:/p2p/QmShjXauvefhMYJ7tfam4adsMTy1DaxJBTKQEVh6Bs3m5i/http-path/graph", {
+  new TestRequest("multiaddr:/ip4/127.0.0.1/tcp/4002/ws/p2p/QmShjXauvefhMYJ7tfam4adsMTy1DaxJBTKQEVh6Bs3m5i/http-path/test", {
     headers: {
       "Host": "somthing:test",
       "Content-Type": "application/json"
@@ -229,6 +222,6 @@ const resp = await node.services.http.fetch(
 
 console.log(await resp.text())
 
-await node.dial(peerIdFromString("QmShjXauvefhMYJ7tfam4adsMTy1DaxJBTKQEVh6Bs3m5i"))
+// await node.dial(peerIdFromString("QmShjXauvefhMYJ7tfam4adsMTy1DaxJBTKQEVh6Bs3m5i"))
 
-console.log(node)
+// console.log(node)
