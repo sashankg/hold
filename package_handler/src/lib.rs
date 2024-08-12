@@ -1,4 +1,4 @@
-use std::{ffi::c_uint, os::raw::c_uchar, str::FromStr};
+use std::{str::FromStr, sync::Arc};
 
 use futures::{channel::mpsc, select, AsyncReadExt, AsyncWriteExt, FutureExt, SinkExt, StreamExt};
 use libp2p::{Multiaddr, PeerId, StreamProtocol};
@@ -6,9 +6,13 @@ use pnet::packet::{MutablePacket, Packet};
 use tracing::Level;
 
 #[no_mangle]
-pub unsafe extern "C" fn handle_packets(hold: *mut Hold, bytes: *mut c_uchar, len: c_uint) -> i32 {
+pub unsafe extern "C" fn handle_packets(
+    hold: *mut Hold,
+    bytes: *const libc::c_uchar,
+    len: libc::size_t,
+) -> i32 {
     let hold = unsafe { &mut *hold };
-    let bytes = unsafe { std::slice::from_raw_parts(bytes as *const u8, len as usize) };
+    let bytes = unsafe { std::slice::from_raw_parts(bytes, len) };
     let rt = &hold.runtime;
     match rt.block_on(handle_packet(&mut hold.context, bytes)) {
         Ok(_) => 0,
@@ -20,7 +24,6 @@ pub unsafe extern "C" fn handle_packets(hold: *mut Hold, bytes: *mut c_uchar, le
 }
 
 async fn handle_packet(hold: &mut Context, bytes: &[u8]) -> Result<(), anyhow::Error> {
-    println!("handle_packet");
     let ip_packet =
         pnet::packet::ipv4::Ipv4Packet::new(bytes).ok_or(anyhow::anyhow!("Invalid ip packet"))?;
     let ip_dest = ip_packet.get_destination();
@@ -38,6 +41,7 @@ async fn handle_packet(hold: &mut Context, bytes: &[u8]) -> Result<(), anyhow::E
         let (sender, mut receiver) = mpsc::channel(1024);
         hold.streams.insert(udp_source, sender.clone());
         let callback = hold.callback;
+        let user_info = Arc::new(hold.user_info);
         // copy bytes to a new buffer
         let mut bytes = bytes.to_vec();
         let mut control = hold.control.clone();
@@ -63,19 +67,29 @@ async fn handle_packet(hold: &mut Context, bytes: &[u8]) -> Result<(), anyhow::E
                         read = stream.read(&mut buf).fuse() => {
                             match read {
                                 Ok(read) => {
-                                    println!("read: {:?}", buf);
-                                    let mut resp_packet = pnet::packet::ipv4::MutableIpv4Packet::new(&mut bytes).unwrap();
-                                    let  ip_payload = resp_packet.payload_mut();
-                                    let mut udp_packet = pnet::packet::udp::MutableUdpPacket::new(ip_payload).unwrap();
+                                    if read == 0 {
+                                        stream.close().await?;
+                                        break;
+                                    }
+                                    println!("read: {:?}", buf[..read].to_vec());
+                                    let udp_packet_size = pnet::packet::udp::MutableUdpPacket::minimum_packet_size() + read;
+                                    let mut udp_packet_bytes = vec![0; udp_packet_size];
+                                    let mut udp_packet = pnet::packet::udp::MutableUdpPacket::new(&mut udp_packet_bytes).unwrap();
                                     udp_packet.set_destination(udp_source);
                                     udp_packet.set_source(udp_dest);
-                                    udp_packet.set_payload(&buf);
+                                    udp_packet.set_payload(&buf[..read]);
                                     udp_packet.set_checksum(pnet::packet::udp::ipv4_checksum(&udp_packet.to_immutable(), &ip_source, &ip_dest));
-                                    resp_packet.set_destination(ip_source);
-                                    resp_packet.set_source(ip_dest);
-                                    // / resp_packet.set_tota&l_length(udp_packet.packet().len() as u16);
-                                    resp_packet.set_checksum(pnet::packet::ipv4::checksum(&resp_packet.to_immutable()));
-                                    callback(buf.as_mut_ptr(), read.try_into()?);
+                                    udp_packet.set_length(udp_packet_size as u16);
+                                    let ip_packet_size = pnet::packet::ipv4::Ipv4Packet::minimum_packet_size() + udp_packet_size;
+                                    let mut ip_packet_bytes = vec![0; ip_packet_size];
+                                    let mut ip_packet = pnet::packet::ipv4::MutableIpv4Packet::new(&mut ip_packet_bytes).unwrap();
+                                    ip_packet.set_version(4);
+                                    ip_packet.set_header_length(5);
+                                    ip_packet.set_destination(ip_source);
+                                    ip_packet.set_source(ip_dest);
+                                    ip_packet.set_total_length(ip_packet_size as u16);
+                                    ip_packet.set_checksum(pnet::packet::ipv4::checksum(&ip_packet.to_immutable()));
+                                    callback(ip_packet.packet().as_ptr(), read, user_info.0);
                                 },
                                 Err(err) => {
                                     println!("error: {:?}", err);
@@ -96,25 +110,36 @@ async fn handle_packet(hold: &mut Context, bytes: &[u8]) -> Result<(), anyhow::E
 }
 
 #[no_mangle]
-pub extern "C" fn init(callback: extern "C" fn(*mut c_uchar, c_uint)) -> *mut Hold {
+pub extern "C" fn init_hold(// callback: extern "C" fn(*const libc::c_uchar, libc::size_t, *const libc::c_void),
+    // user_info: *const libc::c_void,
+) -> *mut Hold {
     println!("init");
-    tracing_subscriber::fmt::init();
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let control = init_libp2p(&rt).unwrap();
-    Box::into_raw(Box::new(Hold {
-        context: Context {
-            control,
-            streams: std::collections::HashMap::new(),
-            callback,
-        },
-        runtime: rt,
-    }))
+    // tracing_subscriber::fmt::init();
+    // let rt = tokio::runtime::Runtime::new().unwrap();
+    // let control = init_libp2p(&rt).unwrap();
+    // Box::into_raw(Box::new(Hold {
+    //     context: Context {
+    //         control,
+    //         streams: std::collections::HashMap::new(),
+    //         callback,
+    //         user_info: UserInfo(user_info),
+    //     },
+    //     runtime: rt,
+    // }))
+    std::ptr::null_mut()
 }
+
+#[derive(Debug, Clone, Copy)]
+struct UserInfo(*const libc::c_void);
+
+unsafe impl Send for UserInfo {}
+unsafe impl Sync for UserInfo {}
 
 struct Context {
     control: libp2p_stream::Control,
     streams: std::collections::HashMap<u16, mpsc::Sender<Vec<u8>>>,
-    callback: extern "C" fn(*mut c_uchar, c_uint),
+    callback: extern "C" fn(*const libc::c_uchar, libc::size_t, *const libc::c_void),
+    user_info: UserInfo,
 }
 
 pub struct Hold {
@@ -146,7 +171,7 @@ fn init_libp2p(rt: &tokio::runtime::Runtime) -> anyhow::Result<libp2p_stream::Co
                     libp2p::yamux::Config::default,
                 )?
                 .with_relay_client(libp2p::noise::Config::new, libp2p::yamux::Config::default)?
-                .with_behaviour(|key, relay_behavior| Behaviour {
+                .with_behaviour(|_, _| Behaviour {
                     // relay_client: relay_behavior,
                     // ping: libp2p::ping::Behaviour::new(libp2p::ping::Config::new()),
                     // identify: libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
@@ -174,18 +199,4 @@ fn init_libp2p(rt: &tokio::runtime::Runtime) -> anyhow::Result<libp2p_stream::Co
     });
 
     Ok(control)
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_handle_packets() {
-        tracing_subscriber::fmt::init();
-    }
-
-    extern "C" fn test_callback(data: *mut c_uchar, len: c_uint) {
-        println!("callback");
-    }
 }

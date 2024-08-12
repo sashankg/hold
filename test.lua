@@ -1,17 +1,34 @@
 local ffi = require("ffi")
+local jit = require("jit")
+
+jit.off()
 
 ffi.cdef [[
+typedef void (*callback_t)(const char* bytes, size_t len, const char* data);
 typedef struct Hold Hold;
 int32_t handle_packets(struct Hold *hold, const char *bytes, unsigned int len);
-struct Hold *init(void (*callback)(unsigned char*, unsigned int));
+struct Hold *init_hold(void (*callback)(unsigned char*, unsigned int, void*), void*);
 ]]
 
 local rust = ffi.load("package_handler")
 
-local hold = rust.init(function(bytes, len)
-    print("Received packet of length " .. len)
-    print("First byte: " .. bytes[0])
-end)
+local function callback(bytes, len, data)
+    -- print("Received packet of length " .. len)
+    -- print("First byte: " .. string.byte(bytes, 1))
+    print(bytesToHex(bytes, len))
+end
+
+local cb = ffi.cast("callback_t", callback)
+
+local hold = rust.init_hold(cb, ffi.cast("void*", "hello world"))
+
+function bytesToHex(bytes, n)
+    local hex = ""
+    for i = 1, n do
+        hex = hex .. string.format("%02X", bytes[i])
+    end
+    return hex
+end
 
 function hexToBytes(hex)
     local bytes = {}

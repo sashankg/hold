@@ -1,5 +1,5 @@
 [workspace] 
-members = ["package_handler"] 
+members = ["package_handler", "packet_handler"] 
 resolver = "2"
 
 [workspace.package]
