@@ -1,0 +1,21 @@
+// Keep this namespace, even when empty - otherwise binding generation will throw an error!
+namespace packet_handler {};
+
+[Error]
+enum PacketHandlerError {
+    "InvalidPacket",
+    "InternalError",
+};
+
+interface PacketHandler {
+    [Throws=PacketHandlerError]
+    constructor(PacketHandlerCallback cb);
+
+    [Self=ByArc,Async,Throws=PacketHandlerError]
+    u8 handle_packet(bytes b);
+};
+
+[Trait, WithForeign]
+interface PacketHandlerCallback {
+    void handle_incoming_packet(bytes b);
+};
